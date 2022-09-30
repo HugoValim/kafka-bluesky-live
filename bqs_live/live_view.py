@@ -1,20 +1,19 @@
 #!/usr/bin/env python3
 
-from kafka import KafkaConsumer
-import msgpack
-
+from os import path
 import threading
 import time
-
-import numpy
 
 from silx.gui import qt
 from silx.gui.plot import Plot1D
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QWidget
 from PyQt5.QtGui import QIcon
-from PyQt5.QtCore import QTimer
+from PyQt5.QtCore import Qt
 
+from kafka import KafkaConsumer
+import msgpack
+import numpy
 
 class ThreadSafePlot1D(Plot1D):
     """Add a thread-safe :meth:`addCurveThreadSafe` method to Plot1D.
@@ -50,14 +49,14 @@ class UpdateThread(threading.Thread):
 
     :param plot1d: The ThreadSafePlot1D to update."""
 
-    def __init__(self, plot1d, detector, motor):
+    def __init__(self, kafka_topic: str, plot1d: Plot1D, detector: str, motor: str):
         self.plot1d = plot1d
         self.running = False
         self.counters_data = []
         self.motors_data = []
         self.detector = detector
         self.motor = motor
-        self.consumer = KafkaConsumer("bluesky", value_deserializer=msgpack.unpackb)
+        self.consumer = KafkaConsumer(kafka_topic, value_deserializer=msgpack.unpackb)
         super(UpdateThread, self).__init__()
 
     def start(self):
@@ -93,9 +92,10 @@ class LiveView(QWidget):
     run_start_signal = QtCore.pyqtSignal()
     run_stop_signal = QtCore.pyqtSignal()
 
-    def __init__(self):
+    def __init__(self, kafka_topic: str):
         super(LiveView, self).__init__()
-        self.consumer = KafkaConsumer("bluesky", value_deserializer=msgpack.unpackb)
+        self.kafka_topic = kafka_topic
+        self.consumer = KafkaConsumer(self.kafka_topic, value_deserializer=msgpack.unpackb)
         self.tab_dict = {}
         self.initUI()
         self.make_connections()
@@ -117,20 +117,50 @@ class LiveView(QWidget):
     def initUI(self) ->  None:
         """Init base UI components"""
         self.title = "Queue Server Live View"
+        height = 800
+        width = int(height*16/9)
+        self.resize(width, height)
         self.setWindowTitle(self.title)
         self.verticalLayout = QtWidgets.QVBoxLayout(self)
         self.verticalLayout.setObjectName("verticalLayout")
         self.tab_widget = QtWidgets.QTabWidget(self)
         self.verticalLayout.addWidget(self.tab_widget)
-        self.build_initial_screen()
+        self.build_initial_screen_tab()
 
-    def build_initial_screen(self) ->  None:
+    def build_icons_pixmap(self):
+        """Build used icons"""
+        img_size = 150
+        pixmap_path = path.join(path.dirname(path.realpath(__file__)), "icons")
+        self.cnpem_icon = QtGui.QPixmap(path.join(pixmap_path, "cnpem.png"))
+        self.cnpem_icon = self.cnpem_icon.scaled(img_size, img_size, QtCore.Qt.KeepAspectRatio)
+        self.lnls_icon = QtGui.QPixmap(path.join(pixmap_path, "lnls-sirius.png"))
+        self.lnls_icon = self.lnls_icon.scaled(img_size, img_size, QtCore.Qt.KeepAspectRatio)
+
+    def build_initial_screen_tab(self) ->  None:
         """Build the main screen to be displayed before a scan start"""
+        self.build_icons_pixmap()
+        grid_layout = QtWidgets.QGridLayout()
+        title_label = QtWidgets.QLabel(self)
+        title_label.setText("Bluesky Queueserver Live View")
+        title_label.setStyleSheet("font-weight: bold; font-size: 30pt")
+        title_label.setAlignment(Qt.AlignCenter)
+        waiting_label = QtWidgets.QLabel(self)
+        waiting_label.setText("Wainting for a scan to begin ...")
+        waiting_label.setStyleSheet("font-weight: bold; font-size: 18pt")
+        waiting_label.setAlignment(Qt.AlignCenter)
+        cnpem_img_label = QtWidgets.QLabel(self)
+        cnpem_img_label.setPixmap(self.cnpem_icon)
+        cnpem_img_label.setAlignment(Qt.AlignCenter)
+        lnls_img_label = QtWidgets.QLabel(self)
+        lnls_img_label.setPixmap(self.lnls_icon)
+        lnls_img_label.setAlignment(Qt.AlignCenter)
         initial_widget =  QtWidgets.QWidget()
-        idx = self.tab_widget.addTab(self.tab_dict[detector]["widget"], detector)
-        h_layout = QtWidgets.QHBoxLayout()
-        initial_widget.setLayout(h_layout)
-
+        initial_widget.setLayout(grid_layout)
+        idx = self.tab_widget.addTab(initial_widget, "Main")
+        grid_layout.addWidget(title_label, 0, 1)
+        grid_layout.addWidget(lnls_img_label, 1, 2)
+        grid_layout.addWidget(cnpem_img_label, 1, 0)
+        grid_layout.addWidget(waiting_label, 2, 1)
 
     def make_connections(self) -> None:
         """Connect signals to slots"""
@@ -152,7 +182,7 @@ class LiveView(QWidget):
         self.tab_dict[detector]["plot"].getXAxis().setLabel(motor)
         self.tab_dict[detector]["plot"].getYAxis().setLabel(detector)
         self.tab_dict[detector]["plot"].setGraphTitle(title=detector)
-        self.tab_dict[detector]["plot_thread"] = UpdateThread(self.tab_dict[detector]["plot"], detector, motor)
+        self.tab_dict[detector]["plot_thread"] = UpdateThread(self.kafka_topic, self.tab_dict[detector]["plot"], detector, motor)
         self.tab_dict[detector]["plot_thread"].start()
         self.tab_dict[detector]["layout"].addWidget(self.tab_dict[detector]["plot"])
         # self.tab_widget.setCurrentIndex(self.tab_dict[detector]["tab_index"])
