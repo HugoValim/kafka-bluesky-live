@@ -88,13 +88,13 @@ class UpdateThread(threading.Thread):
         self.running = False
         self.join(2)
 
-class MyWindow(QWidget):
+class LiveView(QWidget):
 
     run_start_signal = QtCore.pyqtSignal()
     run_stop_signal = QtCore.pyqtSignal()
 
     def __init__(self):
-        super(MyWindow, self).__init__()
+        super(LiveView, self).__init__()
         self.consumer = KafkaConsumer("bluesky", value_deserializer=msgpack.unpackb)
         self.tab_dict = {}
         self.initUI()
@@ -103,11 +103,9 @@ class MyWindow(QWidget):
         t.daemon = True  # Dies when main thread (only non-daemon thread) exits.
         t.start()
 
-    def get_new_scan(self):
+    def get_new_scan(self) -> None:
+        """Keep checking kafka message to know when a scan started/end. Emit signal for both cases"""
         for message in self.consumer:
-            # message value and key are raw bytes -- decode if necessary!
-            # e.g., for unicode: `message.value.decode('utf-8')`
-            # print(message)
             if message.value[0] == "start":
                 self.run_start_signal.emit()
                 self.detectors = message.value[1]["detectors"]
@@ -116,7 +114,7 @@ class MyWindow(QWidget):
             elif message.value[0] == "stop":
                 self.run_stop_signal.emit()
 
-    def initUI(self):
+    def initUI(self) ->  None:
         """Init base UI components"""
         self.title = "Queue Server Live View"
         self.setWindowTitle(self.title)
@@ -124,51 +122,49 @@ class MyWindow(QWidget):
         self.verticalLayout.setObjectName("verticalLayout")
         self.tab_widget = QtWidgets.QTabWidget(self)
         self.verticalLayout.addWidget(self.tab_widget)
+        self.build_initial_screen()
 
-    def make_connections(self): 
+    def build_initial_screen(self) ->  None:
+        """Build the main screen to be displayed before a scan start"""
+        initial_widget =  QtWidgets.QWidget()
+        idx = self.tab_widget.addTab(self.tab_dict[detector]["widget"], detector)
+        h_layout = QtWidgets.QHBoxLayout()
+        initial_widget.setLayout(h_layout)
+
+
+    def make_connections(self) -> None:
+        """Connect signals to slots"""
         self.run_start_signal.connect(self.update_gui)
         self.run_stop_signal.connect(self.stop_plot_threads)
 
-    def stop_plot_threads(self):
-        """Stop all plot thread after the scan ended"""
+    def stop_plot_threads(self) -> None:
+        """Stop all plot threads after the scan ended"""
         for key in self.tab_dict.keys():
             self.tab_dict[key]["plot_thread"].stop()
 
-    def plot_tab(self, detector: str, motor: str):
-        """Manage all plot tab and load an embedded display for it chunk of files selected in browser file menu"""
+    def plot_tab(self, detector: str, motor: str) -> None:
+        """Manage all plot tab creating a new one for each detector in the scan. The first passed motor is passed to be x axis"""
         self.tab_dict[detector] = {"widget": QtWidgets.QWidget()}
         self.tab_dict[detector]["tab_index"] = self.tab_widget.addTab(self.tab_dict[detector]["widget"], detector)
         self.tab_dict[detector]["layout"] = QtWidgets.QHBoxLayout()
         self.tab_dict[detector]["widget"].setLayout(self.tab_dict[detector]["layout"])
         self.tab_dict[detector]["plot"] = ThreadSafePlot1D()
+        self.tab_dict[detector]["plot"].getXAxis().setLabel(motor)
+        self.tab_dict[detector]["plot"].getYAxis().setLabel(detector)
+        self.tab_dict[detector]["plot"].setGraphTitle(title=detector)
         self.tab_dict[detector]["plot_thread"] = UpdateThread(self.tab_dict[detector]["plot"], detector, motor)
         self.tab_dict[detector]["plot_thread"].start()
         self.tab_dict[detector]["layout"].addWidget(self.tab_dict[detector]["plot"])
         # self.tab_widget.setCurrentIndex(self.tab_dict[detector]["tab_index"])
 
-    def update_gui(self):
+    def update_gui(self) -> None:
+        """Update the window with the new plots when a new scan starts, deleting the previous tabs"""
         self.delete_tab()
         for detector in self.detectors:
             self.plot_tab(detector, self.motors[0])
 
-    def delete_tab(self):
-        """Delte a tab from the tabWidget"""
-        for i in range(len(self.tab_dict.keys())):
+    def delete_tab(self) ->  None:
+        """Delte all tabs from the tabWidget"""
+        for i in range(self.tab_widget.count()):
             self.tab_widget.removeTab(0)
         self.tab_dict = {}
-
-
-
-
-def main():
-    # global app
-    app = qt.QApplication([])
-    window = MyWindow()
-    window.show()
-    app.exec_()
-
-    window.updateThread.stop()  # Stop updating the plot
-
-
-if __name__ == '__main__':
-    main()
