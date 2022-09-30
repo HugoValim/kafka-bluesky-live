@@ -31,6 +31,7 @@ setup(
         "silx",
         "numpy",
         "python-dateutil",
+        "python-kafka"
     ],
     package_data={"bqs_live": ["*.ui", "icons/*.png"]},
     packages=find_packages(exclude=["test", "test.*"]),
