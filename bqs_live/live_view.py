@@ -182,6 +182,7 @@ class LiveView(QWidget):
         self.tab_dict[detector]["plot"].getXAxis().setLabel(motor)
         self.tab_dict[detector]["plot"].getYAxis().setLabel(detector)
         self.tab_dict[detector]["plot"].setGraphTitle(title=detector)
+        self.tab_dict[detector]["plot"].setDefaultPlotPoints(True)
         self.tab_dict[detector]["plot_thread"] = UpdateThread(self.kafka_topic, self.tab_dict[detector]["plot"], detector, motor)
         self.tab_dict[detector]["plot_thread"].start()
         self.tab_dict[detector]["layout"].addWidget(self.tab_dict[detector]["plot"])
