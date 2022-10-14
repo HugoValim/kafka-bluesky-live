@@ -24,8 +24,5 @@ def main() -> None:
     window.show()
     app.exec_()
 
-    window.updateThread.stop()  # Stop updating the plot
-
-
 if __name__ == '__main__':
     main()
