@@ -110,14 +110,13 @@ class LiveViewTab(QtWidgets.QTabWidget):
                 self.run_start_signal.emit()
                 self.detectors = message.value[1]["detectors"]
                 self.motors = message.value[1]["motors"]
-                print(self.detectors, self.motors)
             elif message.value[0] == "stop":
                 self.run_stop_signal.emit()
 
 
     def plot_tab(self, detector: str, motor: str) -> None:
         """Manage all plot tab creating a new one for each detector in the scan. The first passed motor is passed to be x axis"""
-        self.tab_dict[detector] = {"widget": QFrame()}
+        self.tab_dict[detector] = {"widget": QtWidgets.QWidget()}
         self.tab_dict[detector]["tab_index"] = self.addTab(self.tab_dict[detector]["widget"], detector)
         self.tab_dict[detector]["layout"] = QtWidgets.QHBoxLayout()
         self.tab_dict[detector]["widget"].setLayout(self.tab_dict[detector]["layout"])
@@ -129,7 +128,7 @@ class LiveViewTab(QtWidgets.QTabWidget):
         self.tab_dict[detector]["plot_thread"] = UpdateThread(self.kafka_topic, self.tab_dict[detector]["plot"], detector, motor)
         self.tab_dict[detector]["plot_thread"].start()
         self.tab_dict[detector]["layout"].addWidget(self.tab_dict[detector]["plot"])
-        # self.setCurrentIndex(self.tab_dict[detector]["tab_index"])
+        # self.tab_widget.setCurrentIndex(self.tab_dict[detector]["tab_index"])
 
     def make_connections(self) -> None:
         """Connect signals to slots"""
@@ -171,15 +170,14 @@ class LiveView(QWidget):
         self.t = threading.Thread(target=self.get_scan_signal)
         self.t.daemon = True  # Dies when main thread (only non-daemon thread) exits.
         self.t.start()
+        self.make_connections()
 
     def get_scan_signal(self) -> None:
         """Keep checking kafka message to know when a scan started/end. Emit signal for both cases"""
         for message in self.consumer:
             if message.value[0] == "start":
+                self.scan_id = message.value[1]["scan_id"]
                 self.run_start_signal.emit()
-                self.detectors = message.value[1]["detectors"]
-                self.motors = message.value[1]["motors"]
-                print(self.detectors, self.motors)
             elif message.value[0] == "stop":
                 self.run_stop_signal.emit()
 
@@ -192,6 +190,17 @@ class LiveView(QWidget):
         self.setWindowTitle(self.title)
         self.live_view_tab = LiveViewTab(self.kafka_topic)
         self.build_main_screen_layout()
+
+    def make_connections(self) -> None:
+        """Connect signals to slots"""
+
+        # Kafka Signals
+        self.run_start_signal.connect(self.on_new_scan_add_tab)
+        # self.run_stop_signal.connect(self.stop_plot_threads)
+
+        # QListWidget Signals
+        self.list_widget.itemEntered.connect(self.change_stack_widget_index)
+        self.list_widget.itemClicked.connect(self.change_stack_widget_index)
 
     def build_icons_pixmap(self):
         """Build used icons"""
@@ -238,10 +247,13 @@ class LiveView(QWidget):
 
     def build_main_screen_layout(self):
         self.stack_widget = QtWidgets.QStackedWidget(self)
+
         self.frame_main = QFrame(self)
         self.frame_main.setFrameShape(QFrame.StyledPanel)
+
         self.list_widget = QtWidgets.QListWidget(self)
         self.list_widget.setFixedWidth(250)
+        self.list_widget.addItem("main")
 
         self.horizontalLayout = QtWidgets.QHBoxLayout(self)
         self.horizontalLayout.addWidget(self.list_widget)
@@ -252,6 +264,18 @@ class LiveView(QWidget):
         self.verticalLayout.addWidget(self.stack_widget)
         self.stack_widget.addWidget(self.build_initial_screen_widget())
 
+    def change_stack_widget_index(self):
+        print(self.list_widget.currentRow())
+        self.stack_widget.setCurrentIndex(self.list_widget.currentRow())
+        print("stack = ", self.stack_widget.currentIndex())
+
     def on_new_scan_add_tab(self):
-        pass
+        """Add new tab with plot after a new scan begin"""
+        self.list_widget.addItem("scan " + str(self.scan_id))
+        plot_now = QtWidgets.QTableWidget()
+        wgt = QtWidgets.QWidget()
+        plot_now.addTab(wgt, "hihihi")
+        self.stack_widget.addWidget(plot_now)
+
+
 
