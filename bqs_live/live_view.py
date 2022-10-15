@@ -17,6 +17,8 @@ from kafka import KafkaConsumer
 import msgpack
 import numpy
 
+THREAD_WAIT = 0.1
+
 class ThreadSafePlot1D(Plot1D):
     """Add a thread-safe :meth:`addCurveThreadSafe` method to Plot1D.
     """
@@ -51,9 +53,10 @@ class UpdateThread(threading.Thread):
 
     :param plot1d: The ThreadSafePlot1D to update."""
 
-    def __init__(self, kafka_topic: str, plot1d: Plot1D, detector: str, motor: str):
+    def __init__(self, kafka_topic: str, plot1d: Plot1D, detector: str, motor: str, total_points: int):
         super(UpdateThread, self).__init__()
         self.plot1d = plot1d
+        self.total_points = total_points
         self.running = False
         self.counters_data = []
         self.motors_data = []
@@ -79,10 +82,12 @@ class UpdateThread(threading.Thread):
     def run(self):
         """Method implementing thread loop that updates the plot"""
         while self.running:
-            time.sleep(.1)
             x, y = self.get_data()
             self.plot1d.addCurveThreadSafe(
                 x, y)
+            if len(x) == self.total_points:
+                break
+            time.sleep(THREAD_WAIT)
 
     def stop(self):
         """Stop the update thread"""
@@ -90,96 +95,81 @@ class UpdateThread(threading.Thread):
         self.join(2)
 
 class LiveViewTab(QtWidgets.QTabWidget):
-    run_start_signal = QtCore.pyqtSignal()
-    run_stop_signal = QtCore.pyqtSignal()
 
-    def __init__(self, kafka_topic: str):
-        super(LiveViewTab, self).__init__()
+    def __init__(self, kafka_topic: str, detectors: list, motors: list, total_points: int, parent=None):
+        super().__init__(parent)
         self.kafka_topic = kafka_topic
-        self.consumer = KafkaConsumer(self.kafka_topic, value_deserializer=msgpack.unpackb)
+        self.detectors = detectors
+        self.motors = motors
+        self.total_points = total_points
         self.tab_dict = {}
-        self.make_connections()
-        self.t = threading.Thread(target=self.get_scan_signal)
-        self.t.daemon = True  # Dies when main thread (only non-daemon thread) exits.
-        self.t.start()
-
-    def get_scan_signal(self) -> None:
-        """Keep checking kafka message to know when a scan started/end. Emit signal for both cases"""
-        for message in self.consumer:
-            if message.value[0] == "start":
-                self.run_start_signal.emit()
-                self.detectors = message.value[1]["detectors"]
-                self.motors = message.value[1]["motors"]
-            elif message.value[0] == "stop":
-                self.run_stop_signal.emit()
-
+        self.build_plots()
 
     def plot_tab(self, detector: str, motor: str) -> None:
         """Manage all plot tab creating a new one for each detector in the scan. The first passed motor is passed to be x axis"""
         self.tab_dict[detector] = {"widget": QtWidgets.QWidget()}
         self.tab_dict[detector]["tab_index"] = self.addTab(self.tab_dict[detector]["widget"], detector)
-        self.tab_dict[detector]["layout"] = QtWidgets.QHBoxLayout()
+        self.tab_dict[detector]["layout"] = QtWidgets.QVBoxLayout()
         self.tab_dict[detector]["widget"].setLayout(self.tab_dict[detector]["layout"])
         self.tab_dict[detector]["plot"] = ThreadSafePlot1D()
         self.tab_dict[detector]["plot"].getXAxis().setLabel(motor)
         self.tab_dict[detector]["plot"].getYAxis().setLabel(detector)
         self.tab_dict[detector]["plot"].setGraphTitle(title=detector)
         self.tab_dict[detector]["plot"].setDefaultPlotPoints(True)
-        self.tab_dict[detector]["plot_thread"] = UpdateThread(self.kafka_topic, self.tab_dict[detector]["plot"], detector, motor)
+        self.tab_dict[detector]["plot_thread"] = UpdateThread(self.kafka_topic, self.tab_dict[detector]["plot"], detector, motor, self.total_points)
         self.tab_dict[detector]["plot_thread"].start()
         self.tab_dict[detector]["layout"].addWidget(self.tab_dict[detector]["plot"])
         # self.tab_widget.setCurrentIndex(self.tab_dict[detector]["tab_index"])
 
-    def make_connections(self) -> None:
-        """Connect signals to slots"""
-        self.run_start_signal.connect(self.update_gui)
-        self.run_stop_signal.connect(self.stop_plot_threads)
-
-    def disconnect(self) -> None:
-        self.run_start_signal.disconnect(self.update_gui)
-        self.run_stop_signal.disconnect(self.stop_plot_threads)
-        self.t.stop()
-
-    def stop_plot_threads(self) -> None:
+    def stop_all_plot_threads(self) -> None:
         """Stop all plot threads after the scan ended"""
         for key in self.tab_dict.keys():
-            self.tab_dict[key]["plot_thread"].stop()
+            t = threading.Thread(target=lambda: self.stop_plot_threads(key))
+            t.start()
 
-    def update_gui(self) -> None:
+    def stop_plot_threads(self, key):
+        self.tab_dict[key]["plot_thread"].stop()
+
+    def build_plots(self) -> None:
         """Update the window with the new plots when a new scan starts, deleting the previous tabs"""
-        self.delete_tab()
         for detector in self.detectors:
             self.plot_tab(detector, self.motors[0])
-
-    def delete_tab(self) ->  None:
-        """Delte all tabs from the tabWidget"""
-        for i in range(self.count()):
-            self.removeTab(0)
-        self.tab_dict = {}
 
 class LiveView(QWidget):
 
     run_start_signal = QtCore.pyqtSignal()
     run_stop_signal = QtCore.pyqtSignal()
+    update_bar_signal = QtCore.pyqtSignal()
     
     def __init__(self, kafka_topic: str):
         super(LiveView, self).__init__()
         self.kafka_topic = kafka_topic
         self.consumer = KafkaConsumer(self.kafka_topic, value_deserializer=msgpack.unpackb)
+        self.stacked_tabs = {}
         self.initUI()
-        self.t = threading.Thread(target=self.get_scan_signal)
-        self.t.daemon = True  # Dies when main thread (only non-daemon thread) exits.
-        self.t.start()
         self.make_connections()
+        t = threading.Thread(target=self.get_new_scan)
+        t.daemon = True  # Dies when main thread (only non-daemon thread) exits.
+        t.start()
 
-    def get_scan_signal(self) -> None:
+    def get_new_scan(self) -> None:
         """Keep checking kafka message to know when a scan started/end. Emit signal for both cases"""
+        self.points_now = 0
         for message in self.consumer:
             if message.value[0] == "start":
                 self.scan_id = message.value[1]["scan_id"]
+                self.detectors = message.value[1]["detectors"]
+                self.motors = message.value[1]["motors"]
+                self.points_now = 0
+                self.total_points = message.value[1]['num_points']
+                
                 self.run_start_signal.emit()
+                continue
             elif message.value[0] == "stop":
                 self.run_stop_signal.emit()
+                continue
+            self.points_now += 1
+            self.update_bar_signal.emit()
 
     def initUI(self) ->  None:
         """Init base UI components"""
@@ -188,7 +178,6 @@ class LiveView(QWidget):
         width = int(height*16/9)
         self.resize(width, height)
         self.setWindowTitle(self.title)
-        self.live_view_tab = LiveViewTab(self.kafka_topic)
         self.build_main_screen_layout()
 
     def make_connections(self) -> None:
@@ -196,11 +185,11 @@ class LiveView(QWidget):
 
         # Kafka Signals
         self.run_start_signal.connect(self.on_new_scan_add_tab)
-        # self.run_stop_signal.connect(self.stop_plot_threads)
+        self.run_stop_signal.connect(self.stop_plot_threads)   
 
         # QListWidget Signals
-        self.list_widget.itemEntered.connect(self.change_stack_widget_index)
-        self.list_widget.itemClicked.connect(self.change_stack_widget_index)
+        self.list_widget.currentItemChanged.connect(self.change_stack_widget_index)
+
 
     def build_icons_pixmap(self):
         """Build used icons"""
@@ -210,6 +199,7 @@ class LiveView(QWidget):
         self.cnpem_icon = self.cnpem_icon.scaled(img_size, img_size, QtCore.Qt.KeepAspectRatio)
         self.lnls_icon = QtGui.QPixmap(path.join(pixmap_path, "lnls-sirius.png"))
         self.lnls_icon = self.lnls_icon.scaled(img_size, img_size, QtCore.Qt.KeepAspectRatio)
+
 
     def build_initial_screen_widget(self) ->  None:
         """Build the main screen to be displayed before a scan start"""
@@ -248,7 +238,7 @@ class LiveView(QWidget):
     def build_main_screen_layout(self):
         self.stack_widget = QtWidgets.QStackedWidget(self)
 
-        self.frame_main = QFrame(self)
+        self.frame_main = QFrame()
         self.frame_main.setFrameShape(QFrame.StyledPanel)
 
         self.list_widget = QtWidgets.QListWidget(self)
@@ -258,24 +248,40 @@ class LiveView(QWidget):
         self.horizontalLayout = QtWidgets.QHBoxLayout(self)
         self.horizontalLayout.addWidget(self.list_widget)
         self.horizontalLayout.addWidget(self.frame_main)
-
         self.verticalLayout = QtWidgets.QVBoxLayout()
         self.frame_main.setLayout(self.verticalLayout)
+        
         self.verticalLayout.addWidget(self.stack_widget)
         self.stack_widget.addWidget(self.build_initial_screen_widget())
 
     def change_stack_widget_index(self):
-        print(self.list_widget.currentRow())
         self.stack_widget.setCurrentIndex(self.list_widget.currentRow())
-        print("stack = ", self.stack_widget.currentIndex())
+
+    def update_bar(self):
+        def bar_percentage(current_points: int, total_points: int):
+            return int((current_points/total_points)*100)
+        self.progress_bar.setValue(bar_percentage(self.points_now, self.total_points))
 
     def on_new_scan_add_tab(self):
         """Add new tab with plot after a new scan begin"""
-        self.list_widget.addItem("scan " + str(self.scan_id))
-        plot_now = QtWidgets.QTableWidget()
-        wgt = QtWidgets.QWidget()
-        plot_now.addTab(wgt, "hihihi")
-        self.stack_widget.addWidget(plot_now)
+        widget =  QtWidgets.QWidget()
+        vlayout = QtWidgets.QVBoxLayout()
+        widget.setLayout(vlayout)
+        self.progress_bar = QtWidgets.QProgressBar()
+        self.update_bar_signal.connect(self.update_bar)
+        self.tab_widget = LiveViewTab(self.kafka_topic, self.detectors, self.motors, self.total_points)
+        idx_now = self.list_widget.count() + 1
+        item_scan = QtWidgets.QListWidgetItem("scan " + str(self.scan_id))
+        self.list_widget.insertItem(idx_now, item_scan)
+        vlayout.addWidget(self.tab_widget)
+        vlayout.addWidget(self.progress_bar)
+        self.stack_widget.addWidget(widget)
+        self.list_widget.setCurrentItem(item_scan)
 
-
+    def stop_plot_threads(self):
+        try:
+            self.tab_widget.stop_all_plot_threads()
+        except AttributeError:
+            pass        
+        
 
