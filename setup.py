@@ -27,7 +27,7 @@ setup(
     url="https://gitlab.cnpem.br/SOL/bluesky/bqs_live",
     install_requires=[
         "wheel",
-        "PyQt5",
+        #"PyQt5",
         "silx",
         "numpy",
         "python-dateutil",
