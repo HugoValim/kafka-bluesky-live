@@ -76,7 +76,10 @@ class UpdateThread(threading.Thread):
             # e.g., for unicode: `message.value.decode('utf-8')`
             if message.value[0] == "event":
                 self.counters_data.append(message.value[1]["data"][self.detector])
-                self.motors_data.append(message.value[1]["data"][self.motor])
+                if self.motor is not None:
+                    self.motors_data.append(message.value[1]["data"][self.motor])
+                else:
+                    self.motors_data = [i for i in range(len(self.counters_data))]
                 return self.motors_data, self.counters_data
 
     def run(self):
@@ -133,7 +136,10 @@ class LiveViewTab(QtWidgets.QTabWidget):
     def build_plots(self) -> None:
         """Update the window with the new plots when a new scan starts, deleting the previous tabs"""
         for detector in self.detectors:
-            self.plot_tab(detector, self.motors[0])
+            if self.motors is not None:
+                self.plot_tab(detector, self.motors[0])
+            else:
+                self.plot_tab(detector, self.motors)
 
 class LiveView(QWidget):
 
@@ -159,7 +165,10 @@ class LiveView(QWidget):
             if message.value[0] == "start":
                 self.scan_id = message.value[1]["scan_id"]
                 self.detectors = message.value[1]["detectors"]
-                self.motors = message.value[1]["motors"]
+                if "motors" in message.value[1].keys():
+                    self.motors = message.value[1]["motors"]
+                else:
+                    self.motors = None
                 self.points_now = 0
                 self.total_points = message.value[1]['num_points']
                 
