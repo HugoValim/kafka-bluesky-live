@@ -145,7 +145,7 @@ class LiveView(QWidget):
 
     run_start_signal = QtCore.pyqtSignal()
     run_stop_signal = QtCore.pyqtSignal()
-    update_bar_signal = QtCore.pyqtSignal()
+    # update_bar_signal = QtCore.pyqtSignal()
     
     def __init__(self, kafka_topic: str):
         super(LiveView, self).__init__()
@@ -160,25 +160,29 @@ class LiveView(QWidget):
 
     def get_new_scan(self) -> None:
         """Keep checking kafka message to know when a scan started/end. Emit signal for both cases"""
-        self.points_now = 0
+        # self.points_now = 0
         for message in self.consumer:
+            # print(message.value[0])
             if message.value[0] == "start":
                 self.scan_id = message.value[1]["scan_id"]
                 self.detectors = message.value[1]["detectors"]
+                self.start_hints = message.value[1]["hints"]
                 if "motors" in message.value[1].keys():
                     self.motors = message.value[1]["motors"]
                 else:
                     self.motors = None
                 self.points_now = 0
                 self.total_points = message.value[1]['num_points']
-                
+                continue
+            if message.value[0] == "descriptor":
+                self.run_start_hints = message.value[1]["hints"]
                 self.run_start_signal.emit()
                 continue
             elif message.value[0] == "stop":
                 self.run_stop_signal.emit()
                 continue
-            self.points_now += 1
-            self.update_bar_signal.emit()
+            # self.points_now += 1
+            # self.update_bar_signal.emit()
 
     def initUI(self) ->  None:
         """Init base UI components"""
@@ -266,24 +270,30 @@ class LiveView(QWidget):
     def change_stack_widget_index(self):
         self.stack_widget.setCurrentIndex(self.list_widget.currentRow())
 
-    def update_bar(self):
-        def bar_percentage(current_points: int, total_points: int):
-            return int((current_points/total_points)*100)
-        self.progress_bar.setValue(bar_percentage(self.points_now, self.total_points))
+    # def update_bar(self):
+    #     def bar_percentage(current_points: int, total_points: int):
+    #         return int((current_points/total_points)*100)
+    #     self.progress_bar.setValue(bar_percentage(self.points_now, self.total_points))
+
+    def get_only_plottable_counter(self):
+        "Get only the counters that can be plotted. This information is gotten based in the hints field"
+        for detector in self.detectors:
+            if not self.run_start_hints[detector]["fields"]:
+                # If field is [], them there is nothing to be read during a scan
+                self.detectors.remove(detector)
 
     def on_new_scan_add_tab(self):
         """Add new tab with plot after a new scan begin"""
         widget =  QtWidgets.QWidget()
         vlayout = QtWidgets.QVBoxLayout()
         widget.setLayout(vlayout)
-        self.progress_bar = QtWidgets.QProgressBar()
-        self.update_bar_signal.connect(self.update_bar)
+        self.get_only_plottable_counter()
         self.tab_widget = LiveViewTab(self.kafka_topic, self.detectors, self.motors, self.total_points)
         idx_now = self.list_widget.count() + 1
         item_scan = QtWidgets.QListWidgetItem("scan " + str(self.scan_id))
         self.list_widget.insertItem(idx_now, item_scan)
         vlayout.addWidget(self.tab_widget)
-        vlayout.addWidget(self.progress_bar)
+        # vlayout.addWidget(self.progress_bar)
         self.stack_widget.addWidget(widget)
         self.list_widget.setCurrentItem(item_scan)
 

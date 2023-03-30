@@ -3,7 +3,7 @@
 from silx.gui import qt
 import argparse
 
-from bqs_live import LiveView
+from kafka_bluesky_live import LiveView
 
 def parse_args() ->  None:
 

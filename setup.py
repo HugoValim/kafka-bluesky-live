@@ -10,7 +10,7 @@ def readme():
 
 
 setup(
-    name="bqs_live",
+    name="kafka-bluesky-live",
     version="0.0.1",
     description="A Module to plot bluesky queue server data streamed through Kafka",
     long_description=readme(),
@@ -24,16 +24,16 @@ setup(
     ],
     author="Hugo Campos",
     author_email="hugo.campos@lnls.br",
-    url="https://gitlab.cnpem.br/SOL/bluesky/bqs_live",
+    url="https://gitlab.cnpem.br/SOL/bluesky/kafka-bluesky-live",
     install_requires=[
         "wheel",
-        #"PyQt5",
+        "PyQt5",
         "silx",
         "numpy",
         "python-dateutil",
         "kafka-python"
     ],
-    package_data={"bqs_live": ["*.ui", "icons/*.png"]},
+    package_data={"kafka_bluesky_live": ["*.ui", "icons/*.png"]},
     packages=find_packages(exclude=["test", "test.*"]),
-    entry_points={"console_scripts": ["bqs_live=bqs_live.scripts.live_view_caller:main"]},
+    entry_points={"console_scripts": ["kbl=kafka_bluesky_live.scripts.live_view_caller:main"]},
 )
