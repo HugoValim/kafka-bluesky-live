@@ -5,11 +5,17 @@ import argparse
 
 from kafka_bluesky_live import LiveView
 
-def parse_args() ->  None:
 
-    parser = argparse.ArgumentParser(description='Live view for Bluesky Queue Server scans')
-    parser.add_argument('kafka-topic', metavar='topic name', type=str,
-                        help='Name of the kafka-topic streaming the scan')
+def parse_args() -> None:
+    parser = argparse.ArgumentParser(
+        description="Live view for Bluesky Queue Server scans"
+    )
+    parser.add_argument(
+        "kafka-topic",
+        metavar="topic name",
+        type=str,
+        help="Name of the kafka-topic streaming the scan",
+    )
     args = parser.parse_args()
     dict_args = vars(args)
     return dict_args
@@ -24,5 +30,6 @@ def main() -> None:
     window.show()
     app.exec_()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()
