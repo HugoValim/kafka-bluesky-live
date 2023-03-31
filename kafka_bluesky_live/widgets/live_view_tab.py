@@ -1,27 +1,45 @@
 import threading
+from dataclasses import dataclass
 
 from PyQt5 import QtWidgets
 
 from .thread_safe_plot import ThreadSafePlot1D
-from .worker_thread import UpdateThread
+from .worker_thread import UpdateThread, UpdateThreadInputs
+
+
+@dataclass
+class LiveViewInputs:
+    kafka_topic: str = None
+    detectors: list = None
+    motors: list = None
+    total_points: int = None
+    main_counter: str = None
+    main_motor: str = None
+    parent: QtWidgets = None
 
 
 class LiveViewTab(QtWidgets.QTabWidget):
-    def __init__(
-        self,
-        kafka_topic: str,
-        detectors: list,
-        motors: list,
-        total_points: int,
-        parent=None,
-    ):
-        super().__init__(parent)
-        self.kafka_topic = kafka_topic
-        self.detectors = detectors
-        self.motors = motors
-        self.total_points = total_points
+    def __init__(self, live_view_args: LiveViewInputs):
+        super().__init__(live_view_args.parent)
+        self.kafka_topic = live_view_args.kafka_topic
+        self.detectors = live_view_args.detectors
+        self.motors = live_view_args.motors
+        self.total_points = live_view_args.total_points
+        self.main_counter = live_view_args.main_counter
+        self.main_motor = live_view_args.main_motor
         self.tab_dict = {}
         self.build_plots()
+
+    def build_update_thread_inputs(self, detector: str, motor: str):
+        """Build inputs needed to insntantiate LiveViewTab"""
+        obj = UpdateThreadInputs(
+            self.kafka_topic,
+            self.tab_dict[detector]["plot"],
+            detector,
+            motor,
+            self.total_points,
+        )
+        return obj
 
     def plot_tab(self, detector: str, motor: str) -> None:
         """Manage all plot tab creating a new one for each detector in the scan. The first passed motor is passed to be x axis"""
@@ -37,11 +55,7 @@ class LiveViewTab(QtWidgets.QTabWidget):
         self.tab_dict[detector]["plot"].setGraphTitle(title=detector)
         self.tab_dict[detector]["plot"].setDefaultPlotPoints(True)
         self.tab_dict[detector]["plot_thread"] = UpdateThread(
-            self.kafka_topic,
-            self.tab_dict[detector]["plot"],
-            detector,
-            motor,
-            self.total_points,
+            self.build_update_thread_inputs(detector, motor)
         )
         self.tab_dict[detector]["plot_thread"].start()
         self.tab_dict[detector]["layout"].addWidget(self.tab_dict[detector]["plot"])
@@ -56,10 +70,23 @@ class LiveViewTab(QtWidgets.QTabWidget):
     def stop_plot_threads(self, key):
         self.tab_dict[key]["plot_thread"].stop()
 
+    def set_x_axis(self):
+        """Set x axis with a motor or points"""
+        if self.motors is not None:
+            if self.main_motor is not None:
+                return self.main_motor
+            return self.motors[0]
+        else:
+            return None
+
+    def set_main_counter_tab_first(self):
+        """Get the main counter and put it a the first tab"""
+        if self.main_counter is not None:
+            self.detectors.remove(self.main_counter)
+            self.detectors.insert(0, self.main_counter)
+
     def build_plots(self) -> None:
         """Update the window with the new plots when a new scan starts, deleting the previous tabs"""
+        self.set_main_counter_tab_first()
         for detector in self.detectors:
-            if self.motors is not None:
-                self.plot_tab(detector, self.motors[0])
-            else:
-                self.plot_tab(detector, self.motors)
+            self.plot_tab(detector, self.set_x_axis())

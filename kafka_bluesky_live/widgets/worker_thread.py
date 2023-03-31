@@ -1,5 +1,6 @@
 import threading
 import time
+from dataclasses import dataclass
 
 from kafka import KafkaConsumer
 import msgpack
@@ -8,28 +9,32 @@ from silx.gui.plot import Plot1D
 THREAD_WAIT = 0.1
 
 
+@dataclass
+class UpdateThreadInputs:
+    kafka_topic: str
+    plot1d: Plot1D
+    detector: str
+    motor: str
+    total_points: int
+
+
 class UpdateThread(threading.Thread):
     """Thread updating the curve of a :class:`ThreadSafePlot1D`
 
     :param plot1d: The ThreadSafePlot1D to update."""
 
-    def __init__(
-        self,
-        kafka_topic: str,
-        plot1d: Plot1D,
-        detector: str,
-        motor: str,
-        total_points: int,
-    ):
+    def __init__(self, update_thread_inputs: UpdateThreadInputs):
         super(UpdateThread, self).__init__()
-        self.plot1d = plot1d
-        self.total_points = total_points
+        self.consumer = KafkaConsumer(
+            update_thread_inputs.kafka_topic, value_deserializer=msgpack.unpackb
+        )
+        self.plot1d = update_thread_inputs.plot1d
+        self.detector = update_thread_inputs.detector
+        self.motor = update_thread_inputs.motor
+        self.total_points = update_thread_inputs.total_points
         self.running = False
         self.counters_data = []
         self.motors_data = []
-        self.detector = detector
-        self.motor = motor
-        self.consumer = KafkaConsumer(kafka_topic, value_deserializer=msgpack.unpackb)
 
     def start(self):
         """Start the update thread"""

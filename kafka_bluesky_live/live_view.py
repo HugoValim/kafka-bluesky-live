@@ -12,7 +12,7 @@ from PyQt5.QtWidgets import QFrame
 from kafka import KafkaConsumer
 import msgpack
 
-from .widgets.live_view_tab import LiveViewTab
+from .widgets.live_view_tab import LiveViewTab, LiveViewInputs
 
 
 class LiveView(QWidget):
@@ -46,6 +46,18 @@ class LiveView(QWidget):
             self.scan_identifier = start_document["file_name"]
         else:
             self.scan_identifier = "scan " + str(self.scan_id)
+        if "main_motor" in start_document.keys():
+            self.main_motor = start_document["main_motor"]
+        else:
+            self.main_motor = None
+        if (
+            "main_counter" in start_document.keys()
+            and start_document["main_counter"] is not None
+        ):
+            self.main_counter = start_document["main_counter"]
+        else:
+            self.main_counter = None
+
         self.points_now = 0
         self.total_points = start_document["num_points"]
 
@@ -61,7 +73,6 @@ class LiveView(QWidget):
         """Keep checking kafka message to know when a scan started/end. Emit signal for both cases"""
         # self.points_now = 0
         for message in self.consumer:
-            # print(message.value[0])
             if message.value[0] == "start":
                 self.parse_start_documents(message.value[1])
                 continue
@@ -176,15 +187,25 @@ class LiveView(QWidget):
                 # If field is [], them there is nothing to be read during a scan
                 self.detectors.remove(detector)
 
+    def build_live_view_inputs(self):
+        """Build inputs needed to insntantiate LiveViewTab"""
+        obj = LiveViewInputs(
+            self.kafka_topic,
+            self.detectors,
+            self.motors,
+            self.total_points,
+            self.main_counter,
+            self.main_motor,
+        )
+        return obj
+
     def on_new_scan_add_tab(self):
         """Add new tab with plot after a new scan begin"""
         widget = QtWidgets.QWidget()
         vlayout = QtWidgets.QVBoxLayout()
         widget.setLayout(vlayout)
         self.get_only_plottable_counter()
-        self.tab_widget = LiveViewTab(
-            self.kafka_topic, self.detectors, self.motors, self.total_points
-        )
+        self.tab_widget = LiveViewTab(self.build_live_view_inputs())
         idx_now = self.list_widget.count() + 1
         item_scan = QtWidgets.QListWidgetItem(self.scan_identifier)
         self.list_widget.insertItem(idx_now, item_scan)
