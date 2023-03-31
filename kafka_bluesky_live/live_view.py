@@ -158,27 +158,44 @@ class LiveView(QWidget):
         t.daemon = True  # Dies when main thread (only non-daemon thread) exits.
         t.start()
 
+    def parse_start_documents(self, start_document: dict) -> None:
+        """Parse start Document and build the needed attributes"""
+        self.scan_id = start_document["scan_id"]
+        self.detectors = start_document["detectors"]
+        self.start_hints = start_document["hints"]
+        if "motors" in start_document.keys():
+            self.motors = start_document["motors"]
+        else:
+            self.motors = None
+        if "file_name" in start_document.keys():
+            self.scan_identifier = start_document["file_name"]
+        else:
+            self.scan_identifier = "scan " + str(self.scan_id)
+        self.points_now = 0
+        self.total_points = start_document['num_points']
+
+    def parse_descriptor_documents(self, descriptor_document: dict) -> None:
+        """Parse descriptor Document and build the needed attributes"""
+        self.run_start_hints = descriptor_document["hints"]
+
+    def parse_stop_documents(self, stop_document: dict) -> None:
+        """Parse stop Document and build the needed attributes"""
+        pass
+
     def get_new_scan(self) -> None:
         """Keep checking kafka message to know when a scan started/end. Emit signal for both cases"""
         # self.points_now = 0
         for message in self.consumer:
             # print(message.value[0])
             if message.value[0] == "start":
-                self.scan_id = message.value[1]["scan_id"]
-                self.detectors = message.value[1]["detectors"]
-                self.start_hints = message.value[1]["hints"]
-                if "motors" in message.value[1].keys():
-                    self.motors = message.value[1]["motors"]
-                else:
-                    self.motors = None
-                self.points_now = 0
-                self.total_points = message.value[1]['num_points']
+                self.parse_start_documents(message.value[1])
                 continue
             if message.value[0] == "descriptor":
-                self.run_start_hints = message.value[1]["hints"]
-                self.run_start_signal.emit()
+                self.parse_descriptor_documents(message.value[1])
+                self.run_start_signal.emit()                
                 continue
             elif message.value[0] == "stop":
+                self.parse_stop_documents(message.value[1])
                 self.run_stop_signal.emit()
                 continue
             # self.points_now += 1
@@ -290,7 +307,7 @@ class LiveView(QWidget):
         self.get_only_plottable_counter()
         self.tab_widget = LiveViewTab(self.kafka_topic, self.detectors, self.motors, self.total_points)
         idx_now = self.list_widget.count() + 1
-        item_scan = QtWidgets.QListWidgetItem("scan " + str(self.scan_id))
+        item_scan = QtWidgets.QListWidgetItem(self.scan_identifier)
         self.list_widget.insertItem(idx_now, item_scan)
         vlayout.addWidget(self.tab_widget)
         # vlayout.addWidget(self.progress_bar)
