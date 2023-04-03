@@ -33,7 +33,7 @@ setup(
         "python-dateutil",
         "kafka-python",
     ],
-    package_data={"kafka_bluesky_live": ["*.ui", "icons/*.png"]},
+    package_data={"kafka_bluesky_live": ["*.ui", "ui/icons/*.png", "ui/icons/*.jpg"]},
     packages=find_packages(exclude=["test", "test.*"]),
     entry_points={
         "console_scripts": ["kbl=kafka_bluesky_live.scripts.live_view_caller:main"]
