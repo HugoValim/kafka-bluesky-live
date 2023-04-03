@@ -19,7 +19,7 @@ class LiveViewInputs:
 
 
 class LiveViewTab(QtWidgets.QTabWidget):
-    def __init__(self, live_view_args: LiveViewInputs):
+    def __init__(self, live_view_args: LiveViewInputs) -> None:
         super().__init__(live_view_args.parent)
         self.kafka_topic = live_view_args.kafka_topic
         self.detectors = live_view_args.detectors
@@ -30,8 +30,10 @@ class LiveViewTab(QtWidgets.QTabWidget):
         self.tab_dict = {}
         self.build_plots()
 
-    def build_update_thread_inputs(self, detector: str, motor: str):
-        """Build inputs needed to insntantiate LiveViewTab"""
+    def build_update_thread_inputs(
+        self, detector: str, motor: str
+    ) -> UpdateThreadInputs:
+        """Build inputs needed to instantiate LiveViewTab"""
         obj = UpdateThreadInputs(
             self.kafka_topic,
             self.tab_dict[detector]["plot"],
@@ -67,10 +69,11 @@ class LiveViewTab(QtWidgets.QTabWidget):
             t = threading.Thread(target=lambda: self.stop_plot_threads(key))
             t.start()
 
-    def stop_plot_threads(self, key):
+    def stop_plot_threads(self, key: str) -> None:
+        """Kill a thread based on the counter name (key)"""
         self.tab_dict[key]["plot_thread"].stop()
 
-    def set_x_axis(self):
+    def set_x_axis(self) -> str:
         """Set x axis with a motor or points"""
         if self.motors is not None:
             if self.main_motor is not None:
@@ -79,8 +82,8 @@ class LiveViewTab(QtWidgets.QTabWidget):
         else:
             return None
 
-    def set_main_counter_tab_first(self):
-        """Get the main counter and put it a the first tab"""
+    def set_main_counter_tab_first(self) -> None:
+        """Get the main counter and put it at the first tab"""
         if self.main_counter is not None:
             self.detectors.remove(self.main_counter)
             self.detectors.insert(0, self.main_counter)

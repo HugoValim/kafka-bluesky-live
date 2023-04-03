@@ -1,15 +1,14 @@
 from os import path
 
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtWidgets import QWidget
-from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QFrame
 
 from kafka_bluesky_live.configs.main_window_config import MainWindowConfigs
 
-class MainUI:  
-    """Class to hold the main screen UI layout"""
+
+class MainUI:
+    """Class to be inherited in the main window, it holds the main screen UI layout"""
 
     def initUI(self) -> None:
         """Init base UI components"""
@@ -19,7 +18,7 @@ class MainUI:
         self.setWindowTitle(MainWindowConfigs.title)
         self.build_main_screen_layout()
 
-    def build_icons_pixmap(self):
+    def build_icons_pixmap(self) -> None:
         """Build used icons"""
         img_size = 150
         pixmap_path = path.join(path.dirname(path.realpath(__file__)), "icons")
@@ -33,8 +32,6 @@ class MainUI:
         )
         self.background_path = path.join(pixmap_path, "background.jpg")
 
-
-
     def build_initial_screen_widget(self) -> None:
         """Build the main screen to be displayed before a scan start"""
         self.build_icons_pixmap()
@@ -43,12 +40,16 @@ class MainUI:
 
         title_label = QtWidgets.QLabel(self)
         title_label.setText(MainWindowConfigs.title)
-        title_label.setStyleSheet("font-weight: bold; font-size: 30pt; background:transparent;")
+        title_label.setStyleSheet(
+            "font-weight: bold; font-size: 30pt; background:transparent;"
+        )
         title_label.setAlignment(Qt.AlignCenter)
 
         waiting_label = QtWidgets.QLabel(self)
         waiting_label.setText("Wainting for a scan to begin ...")
-        waiting_label.setStyleSheet("font-weight: bold; font-size: 18pt; background:transparent;")
+        waiting_label.setStyleSheet(
+            "font-weight: bold; font-size: 18pt; background:transparent;"
+        )
         waiting_label.setAlignment(Qt.AlignCenter)
 
         cnpem_img_label = QtWidgets.QLabel(self)
@@ -67,12 +68,17 @@ class MainUI:
         grid_layout.addWidget(waiting_label, 2, 1)
 
         main_screen_widget = QFrame()
-        main_screen_widget.setStyleSheet("background-image: url({}); background-attachment: fixed".format(self.background_path))
+        main_screen_widget.setStyleSheet(
+            "background-image: url({}); background-attachment: fixed".format(
+                self.background_path
+            )
+        )
         main_screen_widget.setLayout(grid_layout)
 
         return main_screen_widget
 
-    def build_main_screen_layout(self):
+    def build_main_screen_layout(self) -> None:
+        """Build the main window showed in the UI initialization"""
         self.stack_widget = QtWidgets.QStackedWidget(self)
 
         self.frame_main = QFrame()

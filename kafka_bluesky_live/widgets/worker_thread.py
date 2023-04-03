@@ -1,12 +1,9 @@
 import threading
-import time
 from dataclasses import dataclass
 
 from kafka import KafkaConsumer
 import msgpack
 from silx.gui.plot import Plot1D
-
-THREAD_WAIT = 0.1
 
 
 @dataclass
@@ -23,7 +20,7 @@ class UpdateThread(threading.Thread):
 
     :param plot1d: The ThreadSafePlot1D to update."""
 
-    def __init__(self, update_thread_inputs: UpdateThreadInputs):
+    def __init__(self, update_thread_inputs: UpdateThreadInputs) -> None:
         super(UpdateThread, self).__init__()
         self.consumer = KafkaConsumer(
             update_thread_inputs.kafka_topic, value_deserializer=msgpack.unpackb
@@ -36,12 +33,13 @@ class UpdateThread(threading.Thread):
         self.counters_data = []
         self.motors_data = []
 
-    def start(self):
+    def start(self) -> None:
         """Start the update thread"""
         self.running = True
         super(UpdateThread, self).start()
 
-    def get_data(self) -> dict:
+    def get_data(self) -> list:
+        """Get data based on the kafka topic"""
         for message in self.consumer:
             # message value and key are raw bytes -- decode if necessary!
             # e.g., for unicode: `message.value.decode('utf-8')`
@@ -52,17 +50,17 @@ class UpdateThread(threading.Thread):
                 else:
                     self.motors_data = [i for i in range(len(self.counters_data))]
                 return self.motors_data, self.counters_data
+            elif message.value[0] == "stop":
+                self.running = False
+                return None, None
 
-    def run(self):
+    def run(self) -> None:
         """Method implementing thread loop that updates the plot"""
         while self.running:
             x, y = self.get_data()
-            self.plot1d.addCurveThreadSafe(x, y)
-            if len(x) == self.total_points:
-                break
-            time.sleep(THREAD_WAIT)
+            if x is not None:
+                self.plot1d.addCurveThreadSafe(x, y)
 
-    def stop(self):
+    def stop(self) -> None:
         """Stop the update thread"""
-        self.running = False
-        self.join(2)
+        self.join(1)

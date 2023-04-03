@@ -9,12 +9,15 @@ import msgpack
 from .widgets.live_view_tab import LiveViewTab, LiveViewInputs
 from .ui.main_window_ui import MainUI
 
+
 class LiveView(QWidget, MainUI):
+    """Main Live View class"""
+
     run_start_signal = QtCore.pyqtSignal()
     run_stop_signal = QtCore.pyqtSignal()
     # update_bar_signal = QtCore.pyqtSignal()
 
-    def __init__(self, kafka_topic: str):
+    def __init__(self, kafka_topic: str) -> None:
         super(LiveView, self).__init__()
         self.kafka_topic = kafka_topic
         self.consumer = KafkaConsumer(
@@ -64,7 +67,7 @@ class LiveView(QWidget, MainUI):
         pass
 
     def get_new_scan(self) -> None:
-        """Keep checking kafka message to know when a scan started/end. Emit signal for both cases"""
+        """Keep checking kafka messages to know when a scan started/end. Emit signal for both cases"""
         # self.points_now = 0
         for message in self.consumer:
             if message.value[0] == "start":
@@ -91,7 +94,8 @@ class LiveView(QWidget, MainUI):
         # QListWidget Signals
         self.list_widget.currentItemChanged.connect(self.change_stack_widget_index)
 
-    def change_stack_widget_index(self):
+    def change_stack_widget_index(self) -> None:
+        """Change stach widget to match the current selected row in the list widget"""
         self.stack_widget.setCurrentIndex(self.list_widget.currentRow())
 
     # def update_bar(self):
@@ -99,14 +103,14 @@ class LiveView(QWidget, MainUI):
     #         return int((current_points/total_points)*100)
     #     self.progress_bar.setValue(bar_percentage(self.points_now, self.total_points))
 
-    def get_only_plottable_counter(self):
+    def get_only_plottable_counter(self) -> None:
         "Get only the counters that can be plotted. This information is gotten based in the hints field"
         for detector in self.detectors:
             if not self.run_start_hints[detector]["fields"]:
                 # If field is [], them there is nothing to be read during a scan
                 self.detectors.remove(detector)
 
-    def build_live_view_inputs(self):
+    def build_live_view_inputs(self) -> LiveViewInputs:
         """Build inputs needed to insntantiate LiveViewTab"""
         obj = LiveViewInputs(
             self.kafka_topic,
@@ -118,8 +122,8 @@ class LiveView(QWidget, MainUI):
         )
         return obj
 
-    def on_new_scan_add_tab(self):
-        """Add new tab with plot after a new scan begin"""
+    def on_new_scan_add_tab(self) -> None:
+        """Add new tab with the current scans plots after a new scan begin"""
         widget = QtWidgets.QWidget()
         vlayout = QtWidgets.QVBoxLayout()
         widget.setLayout(vlayout)
@@ -134,6 +138,7 @@ class LiveView(QWidget, MainUI):
         self.list_widget.setCurrentItem(item_scan)
 
     def stop_plot_threads(self):
+        """Stop all plotting threads when a run stops"""
         try:
             self.tab_widget.stop_all_plot_threads()
         except AttributeError:
