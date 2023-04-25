@@ -31,7 +31,7 @@ kafka_callback_token = RE.subscribe(kafka_callback)
 
 ## With this done, you can now launch kafka-bluesky-live, start a the run and see the data being plotted live.
 
-![](resource/images/main.png "Live View")
+![](resource/images/live.png "Live View")
 
 ### First, install this project:
 ```
