@@ -11,7 +11,7 @@ def readme():
 
 setup(
     name="kafka-bluesky-live",
-    version="0.0.1",
+    version="0.0.3",
     description="This is a live view for data produced by Bluesky in the so called Documents and streamed via Kafka.",
     long_description=readme(),
     classifiers=[
@@ -33,7 +33,7 @@ setup(
         "python-dateutil",
         "kafka-python",
     ],
-    package_data={"kafka_bluesky_live": ["*.ui", "ui/icons/*.png", "ui/icons/*.jpg"]},
+    package_data={"kafka_bluesky_live": ["*.ui", "ui/icons/*.png", "ui/icons/*.jpg", "resource/images/*.png"]},
     packages=find_packages(exclude=["test", "test.*"]),
     entry_points={
         "console_scripts": ["kbl=kafka_bluesky_live.scripts.live_view_caller:main"]
