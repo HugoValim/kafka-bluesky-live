@@ -1,6 +1,6 @@
 # This is a live view for data produced by Bluesky in the so called "Documents" and streamed via [Kafka](https://kafka.apache.org/).
 
-![](resource/image/main.png "Main Window")
+![](resource/images/main.png "Main Window")
 
 ## In order to use it, you'll need to have an acessible Kafka Topic that you can publish your data. You will need to deploy Kafka in your PC and create this topic. If you are running this from a beamline configured GUI, the topic is probably already create and will be called <BL>_bluesky, (EMA_bluesky for instance). There a really easy-to-follow tutorial about Kafka [Here](https://kafka.apache.org/quickstart).
 
