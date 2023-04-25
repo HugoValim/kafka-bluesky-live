@@ -3,10 +3,10 @@ This is a live view for data produced by Bluesky in the so called "Documents" an
 
 .. image:: resource/images/main.png
 
-## In order to use it, you'll need to have an acessible Kafka Topic that you can publish your data. You will need to deploy Kafka in your PC and create this topic. If you are running this from a beamline configured GUI, the topic is probably already create and will be called <BL>_bluesky, (EMA_bluesky for instance). There a really easy-to-follow tutorial about Kafka `Here <https://kafka.apache.org/quickstart>`_.
+In order to use it, you'll need to have an acessible Kafka Topic that you can publish your data. You will need to deploy Kafka in your PC and create this topic. If you are running this from a beamline configured GUI, the topic is probably already create and will be called <BL>_bluesky, (EMA_bluesky for instance). There a really easy-to-follow tutorial about Kafka `Here <https://kafka.apache.org/quickstart>`_.
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-## After setting up Kafka and the topic that you will stream to, you will need a callback to subscribe to RunEngine and stream the run generated Documents, it is a simple callback:
+After setting up Kafka and the topic that you will stream to, you will need a callback to subscribe to RunEngine and stream the run generated Documents, it is a simple callback:
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 ::
@@ -22,10 +22,10 @@ This is a live view for data produced by Bluesky in the so called "Documents" an
         producer.send(<kafkja_topic>, (name, doc))
 
 
-## Notice that you will need to install kafka-python and msgpack.
+Notice that you will need to install kafka-python and msgpack.
 -----------------------------------------------------------------
 
-## After the definition of the callback, subscribe it to Bluesky RunEngine:
+After the definition of the callback, subscribe it to Bluesky RunEngine:
 ---------------------------------------------------------------------------
 
 ::
@@ -36,12 +36,12 @@ This is a live view for data produced by Bluesky in the so called "Documents" an
     kafka_callback_token = RE.subscribe(kafka_callback)
 
 
-## With this done, you can now launch kafka-bluesky-live, start a the run and see the data being plotted live.
+With this done, you can now launch kafka-bluesky-live, start a the run and see the data being plotted live.
 --------------------------------------------------------------------------------------------------------------
 
 .. image:: resource/images/live.png
 
-### First, install this project:
+First, install this project:
 ________________________________
 
 ::
@@ -50,7 +50,7 @@ ________________________________
     pip install kafka-bluesky-live
 
 
-### Then, run the in the terminal, run the following command:
+Then, run the in the terminal, run the following command:
 _____________________________________________________________
 
 ::
@@ -58,13 +58,13 @@ _____________________________________________________________
     kbl <kafka_topic_name>
 
 
-### With the interface already opened, start a run in Bluesky to see it being plotted live.
+With the interface already opened, start a run in Bluesky to see it being plotted live.
 ___________________________________________________________________________________________
 
-## There are some special information that can be passed to kafka-bluesky-live via scan metadata that will change some of its behaviours. You can choose what scan motor that will be in the x-axis, set the counter that is going to be shown in the first tab and set the name that will identify the current run. This is all done by the special metada, they are: "file_name", "main_motor" and "main_counter".
+There are some special information that can be passed to kafka-bluesky-live via scan metadata that will change some of its behaviours. You can choose what scan motor that will be in the x-axis, set the counter that is going to be shown in the first tab and set the name that will identify the current run. This is all done by the special metada, they are: "file_name", "main_motor" and "main_counter".
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-### To input then to the current run you must add them as a metadata for that run, there are several ways that this can be done, for example defining a dict and inputing it to the RunEngine afterwards:
+To input then to the current run you must add them as a metadata for that run, there are several ways that this can be done, for example defining a dict and inputing it to the RunEngine afterwards:
 _________________________________________________________________________________________________________________________________________________________________________________________________________
 
 ::
