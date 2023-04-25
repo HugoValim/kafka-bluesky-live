@@ -11,7 +11,7 @@ def readme():
 
 setup(
     name="kafka-bluesky-live",
-    version="0.0.3",
+    version="0.0.1",
     description="This is a live view for data produced by Bluesky in the so called Documents and streamed via Kafka.",
     long_description=readme(),
     classifiers=[
@@ -27,7 +27,7 @@ setup(
     url="https://gitlab.cnpem.br/SOL/bluesky/kafka-bluesky-live",
     install_requires=[
         "wheel",
-        # "PyQt5",
+        "pyqt5",
         "silx",
         "numpy",
         "python-dateutil",

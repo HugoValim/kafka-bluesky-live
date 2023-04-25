@@ -35,7 +35,6 @@ kafka_callback_token = RE.subscribe(kafka_callback)
 
 ### First, install this project:
 ```
-git clone https://gitlab.cnpem.br/SOL/bluesky/kafka-bluesky-live
 pip install kafka-bluesky-live
 ```
 

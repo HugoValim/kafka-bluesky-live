@@ -48,7 +48,6 @@ ________________________________
 
 ::
 
-    git clone https://gitlab.cnpem.br/SOL/bluesky/kafka-bluesky-live
     pip install kafka-bluesky-live
 
 
