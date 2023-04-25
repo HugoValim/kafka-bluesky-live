@@ -12,7 +12,7 @@ def readme():
 setup(
     name="kafka-bluesky-live",
     version="0.0.1",
-    description="A Module to plot bluesky queue server data streamed through Kafka",
+    description="This is a live view for data produced by Bluesky in the so called Documents and streamed via Kafka.",
     long_description=readme(),
     classifiers=[
         "Development Status :: 1 - Planning",
